@@ -342,6 +342,32 @@ describe("MCP server wiring with a session, without a preview tab", () => {
         expect(readFileSync(pageFile, "utf8")).toContain(data)
     }, 30000)
 
+    it("keeps a shape on layer 1 when an edit sends it back as shown", async () => {
+        // Layer 2 moved to the back: it comes before layer 1 in the file
+        const doc = `<mxfile><diagram id="p1" name="Page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="L2" value="Layer 2" parent="0"/><mxCell id="1" parent="0"/><mxCell id="a" value="A" style="rounded=1;" vertex="1" parent="1"><mxGeometry x="40" y="40" width="120" height="60" as="geometry"/></mxCell></root></mxGraphModel></diagram></mxfile>`
+        expect(
+            (await callTool("load_diagram", { xml: doc })).isError,
+        ).toBeFalsy()
+        const shown = textOf(await callTool("get_diagram", {}))
+        const cell = shown.match(/<mxCell id="a"[^>]*\/>/)?.[0] ?? ""
+        expect(cell).not.toContain("parent=")
+        const edited = await callTool("edit_diagram", {
+            operations: [
+                {
+                    operation: "update",
+                    cell_id: "a",
+                    new_xml: cell.replace('value="A"', 'value="B"'),
+                },
+            ],
+        })
+        expect(edited.isError).toBeFalsy()
+        const file = path.join(dataDir, "layers.drawio")
+        await callTool("export_diagram", { path: file })
+        expect(readFileSync(file, "utf8")).toMatch(
+            /<mxCell id="a" value="B"[^>]*parent="1"/,
+        )
+    }, 30000)
+
     it("exports into a folder that does not exist yet", async () => {
         const drawn = await callTool("create_new_diagram", {
             xml: '<mxCell id="2" value="A" x="40" y="40" w="120" h="60"/>',

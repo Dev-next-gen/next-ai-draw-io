@@ -60,16 +60,23 @@ const attr = (name: string, value: string) =>
 const attributeText = (attrs: TagAttribute[]) =>
     attrs.map((a) => attr(a.name, a.value)).join("")
 
-/** The id of the page's first layer (a cell whose parent is "0"), or "1" */
+/**
+ * The layer a cell without a parent goes on: "1" when the page has it, as
+ * foldCells leaves parent="1" out, else the page's first layer (a cell
+ * whose parent is "0"), or "1"
+ */
 export function defaultLayerOf(xml: string): string {
+    let first: string | undefined
     for (const [, attrText] of xml.matchAll(CELL_BLOCK)) {
         const attrs = new Map(
             readAttributes(attrText).map((a) => [a.name, a.value]),
         )
         const id = attrs.get("id")
-        if (attrs.get("parent") === "0" && id) return id
+        if (attrs.get("parent") !== "0" || !id) continue
+        if (id === "1") return id
+        first ??= id
     }
-    return "1"
+    return first ?? "1"
 }
 
 /**
